@@ -51,4 +51,3 @@ def validate_scope(rows: list[dict], expected: int, dataset: str) -> None:
         raise ValueError(
             f"{dataset}: found {len(rows)} examples, expected exactly {expected} for Appendix D.5.1"
         )
-
