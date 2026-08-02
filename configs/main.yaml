@@ -1,0 +1,82 @@
+# NAACL27_CATCH Appendix A and D.5 reproducibility configuration.
+experiment:
+  name: catch_main
+  output_root: results
+  evaluation_runs: [41, 42, 43]
+  max_new_tokens: 2048
+  precision: bfloat16
+  inference_framework: huggingface_transformers
+
+datasets:
+  minerva:
+    file: data/benchmarks/minerva.jsonl
+    variants: data/variants/minerva.jsonl
+    expected_examples: 272
+  math500:
+    file: data/benchmarks/math500.jsonl
+    variants: data/variants/math500.jsonl
+    expected_examples: 500
+  gsm8k:
+    file: data/benchmarks/gsm8k.jsonl
+    variants: data/variants/gsm8k.jsonl
+    expected_examples: 1319
+
+models:
+  qwen25_3b: Qwen/Qwen2.5-3B-Instruct
+  llama32_1b: meta-llama/Llama-3.2-1B-Instruct
+  llama31_8b: meta-llama/Meta-Llama-3.1-8B-Instruct
+  qwen3_8b: Qwen/Qwen3-8B
+
+decoding:
+  base_and_perturbations:
+    do_sample: false
+    temperature: 0.0
+    top_p: 1.0
+
+text_perturbation:
+  count: 4
+  families:
+    - surface_rewording
+    - role_preserving_entity_or_scenario_substitution
+    - condition_reordering
+    - irrelevant_distractor_insertion
+  generator:
+    model: deepseek-v4-pro
+    temperature: 0.8
+    top_p: 0.95
+    api_key_env: DEEPSEEK_API_KEY
+  verifier:
+    model: deepseek-v4-pro
+    thinking_mode: true
+    api_key_env: DEEPSEEK_API_KEY
+
+weight_perturbation:
+  count: 4
+  rank: 4
+  sigma: 0.03
+  target_suffixes: [q_proj, k_proj]
+  layers: all
+  seed_groups:
+    41: [42, 43, 44, 45]
+    42: [46, 47, 48, 49]
+    43: [50, 51, 52, 53]
+
+hesitation:
+  top_m: 10
+  include_base_trace: false
+  pre_answer_only: true
+  proximity_weight: linear
+  missing_answer_span: training_fold_median
+
+calibration:
+  protocol: leave_one_dataset_out
+  datasets: [minerva, math500, gsm8k]
+  standardize_on_training_fold: true
+  model: logistic_regression
+  features: [answer_shift, contextual_hesitation]
+  positive_label: incorrect
+
+metrics:
+  - auroc
+  - auprc
+  - selective_accuracy_at_50_percent_coverage
