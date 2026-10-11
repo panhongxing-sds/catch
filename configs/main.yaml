@@ -1,4 +1,4 @@
-# NAACL27_CATCH Appendix A and D.5 reproducibility configuration.
+# Main experiment configuration, matching the latest paper and Algorithms 1/2.
 experiment:
   name: catch_main
   output_root: results
@@ -45,10 +45,11 @@ text_perturbation:
     temperature: 0.8
     top_p: 0.95
     api_key_env: DEEPSEEK_API_KEY
+    api_style: chat_completions
   verifier:
-    model: deepseek-v4-pro
-    thinking_mode: true
-    api_key_env: DEEPSEEK_API_KEY
+    model: gpt-5.6
+    api_style: responses
+    api_key_env: OPENAI_API_KEY
 
 weight_perturbation:
   count: 4
@@ -67,6 +68,12 @@ hesitation:
   pre_answer_only: true
   proximity_weight: linear
   missing_answer_span: training_fold_median
+
+training_free:
+  aggregation: hesitation_gated_consistency
+  normalization: log_fixed_top_m
+  unsupported_trajectory_commitment: 0.0
+  include_base_trace: false
 
 calibration:
   protocol: leave_one_dataset_out

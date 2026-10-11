@@ -22,7 +22,9 @@ def read_jsonl(path: str | Path) -> list[dict]:
             try:
                 rows.append(json.loads(line))
             except json.JSONDecodeError as error:
-                raise ValueError(f"Invalid JSON on {path}:{line_number}: {error}") from error
+                raise ValueError(
+                    f"Invalid JSON on {path}:{line_number}: {error}"
+                ) from error
     return rows
 
 

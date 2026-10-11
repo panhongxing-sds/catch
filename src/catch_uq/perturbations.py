@@ -23,6 +23,9 @@ class LowRankGaussianPerturber:
 
         self.model = model
         self.config = config or WeightPerturbationConfig()
+        if self.config.rank < 1 or self.config.sigma < 0:
+            raise ValueError("Rank must be positive and sigma nonnegative")
+        self._active = False
         self._modules: dict[str, object] = {}
         self._bases: dict[str, tuple[object, object]] = {}
         self._originals: dict[str, object] = {}
@@ -41,7 +44,7 @@ class LowRankGaussianPerturber:
                 vh[:rank].cpu(),
             )
         if not self._modules:
-            raise ValueError("No q_proj/k_proj linear layers were found in the model")
+            raise ValueError(f"No linear layers match {self.config.target_suffixes}")
 
     @property
     def target_names(self) -> tuple[str, ...]:
@@ -50,6 +53,12 @@ class LowRankGaussianPerturber:
     @contextmanager
     def sampled(self, seed: int) -> Iterator[None]:
         import torch
+
+        if self._active:
+            raise RuntimeError(
+                "Nested perturbations would accumulate updates; use independent runs"
+            )
+        self._active = True
 
         def deltas():
             for name, module in self._modules.items():
@@ -63,16 +72,25 @@ class LowRankGaussianPerturber:
                 u = u_cpu.to(device=device, dtype=torch.float32)
                 vh = vh_cpu.to(device=device, dtype=torch.float32)
                 scale = self.config.sigma / (module.in_features**0.5)
-                epsilon = torch.randn(
-                    u.shape[1], generator=generator, device=device, dtype=torch.float32
-                ) * scale
-                delta = ((u * epsilon.unsqueeze(0)) @ vh).to(dtype=module.weight.dtype)
-                yield module, delta
+                epsilon = (
+                    torch.randn(
+                        u.shape[1],
+                        generator=generator,
+                        device=device,
+                        dtype=torch.float32,
+                    )
+                    * scale
+                )
+                delta = (u * epsilon.unsqueeze(0)) @ vh
+                updated = (
+                    self._originals[name].to(device=device, dtype=torch.float32) + delta
+                )
+                yield module, updated.to(dtype=module.weight.dtype)
 
         try:
             with torch.no_grad():
-                for module, delta in deltas():
-                    module.weight.add_(delta)
+                for module, updated in deltas():
+                    module.weight.copy_(updated)
             yield
         finally:
             with torch.no_grad():
@@ -82,3 +100,4 @@ class LowRankGaussianPerturber:
                             device=module.weight.device, dtype=module.weight.dtype
                         )
                     )
+            self._active = False

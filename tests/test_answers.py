@@ -11,7 +11,9 @@ def test_boxed_answer_has_priority_and_span():
 def test_marker_then_final_line_fallback():
     assert extract_final_answer("work\nThe final answer is: 42.").normalized == "42"
     assert extract_final_answer("work\n17").normalized == "17"
-    symbolic = extract_final_answer("Therefore, the answer is $x^2+1$. I hope it is correct.")
+    symbolic = extract_final_answer(
+        "Therefore, the answer is $x^2+1$. I hope it is correct."
+    )
     assert answers_equivalent(symbolic.normalized, "x^2+1")
 
 

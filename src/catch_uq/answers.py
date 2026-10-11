@@ -122,10 +122,38 @@ def answers_equivalent(left: str, right: str, tolerance: float = 1e-6) -> bool:
         return math.isclose(fa, fb, rel_tol=tolerance, abs_tol=tolerance)
     except ValueError:
         pass
+    # SymPy's parser evaluates Python internally. Reject non-mathematical syntax
+    # and use only explicit scalar symbols/functions, never its default globals.
+    for expression in (a, b):
+        if len(expression) > 512 or not re.fullmatch(r"[a-z0-9+*/().-]+", expression):
+            return False
+        names = re.findall(r"[a-z]+", expression)
+        if any(name not in {"pi", "sqrt", "e"} and len(name) != 1 for name in names):
+            return False
     try:
-        local = {"pi": sp.pi, "e": sp.E, "sqrt": sp.sqrt}
-        ea = parse_expr(a, local_dict=local, transformations=_TRANSFORMATIONS, evaluate=True)
-        eb = parse_expr(b, local_dict=local, transformations=_TRANSFORMATIONS, evaluate=True)
+        local = {letter: sp.Symbol(letter) for letter in "abcdefghijklmnopqrstuvwxyz"}
+        local.update(pi=sp.pi, e=sp.E, sqrt=sp.sqrt)
+        constructors = {
+            "Integer": sp.Integer,
+            "Float": sp.Float,
+            "Rational": sp.Rational,
+            "Symbol": sp.Symbol,
+            "__builtins__": {},
+        }
+        ea = parse_expr(
+            a,
+            local_dict=local,
+            global_dict=constructors,
+            transformations=_TRANSFORMATIONS,
+            evaluate=True,
+        )
+        eb = parse_expr(
+            b,
+            local_dict=local,
+            global_dict=constructors,
+            transformations=_TRANSFORMATIONS,
+            evaluate=True,
+        )
         return sp.simplify(ea - eb) == 0
     except Exception:  # noqa: BLE001 - model text can trigger several SymPy parser exceptions
         return False

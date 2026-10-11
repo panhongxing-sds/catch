@@ -23,7 +23,9 @@ def load_benchmark(path: str | Path, dataset: str) -> list[dict]:
         question = _first(raw, QUESTION_KEYS)
         reference = _first(raw, ANSWER_KEYS)
         if not question or not reference:
-            raise ValueError(f"{path}: row {index + 1} needs a question/problem and answer/reference")
+            raise ValueError(
+                f"{path}: row {index + 1} needs a question/problem and answer/reference"
+            )
         output.append(
             {
                 "id": str(raw.get("id", f"{dataset}_{index}")),
@@ -32,6 +34,8 @@ def load_benchmark(path: str | Path, dataset: str) -> list[dict]:
                 "reference": reference,
             }
         )
+    if not output or len({row["id"] for row in output}) != len(output):
+        raise ValueError(f"{path}: benchmark must be nonempty with unique IDs")
     return output
 
 
@@ -39,9 +43,17 @@ def load_variants(path: str | Path) -> dict[str, list[str]]:
     variants: dict[str, list[str]] = {}
     for row in read_jsonl(path):
         record_id = str(row["id"])
-        candidates = [str(value).strip() for value in row.get("variants", []) if str(value).strip()]
+        if record_id in variants:
+            raise ValueError(f"{path}: duplicate variants ID {record_id}")
+        candidates = [
+            str(value).strip()
+            for value in row.get("variants", [])
+            if str(value).strip()
+        ]
         if len(candidates) != 4:
-            raise ValueError(f"{path}: {record_id} has {len(candidates)} variants; Appendix A.2.1 requires 4")
+            raise ValueError(
+                f"{path}: {record_id} has {len(candidates)} variants; Appendix A.2.1 requires 4"
+            )
         variants[record_id] = candidates
     return variants
 

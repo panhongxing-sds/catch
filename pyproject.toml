@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "catch-uq"
-version = "0.1.0"
+version = "0.2.0"
 description = "CATCH uncertainty quantification for large language model reasoning"
 readme = "README.md"
 license = {file = "LICENSE"}
@@ -15,7 +15,8 @@ dependencies = [
   "scikit-learn>=1.3",
   "sympy>=1.12",
   "torch>=2.1",
-  "transformers>=4.45",
+  "transformers>=4.45,<5",
+  "accelerate>=0.34",
   "tqdm>=4.66",
 ]
 

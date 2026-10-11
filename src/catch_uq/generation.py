@@ -39,22 +39,15 @@ def load_model_and_tokenizer(
 
 def build_prompt(tokenizer, problem: str, model_name: str) -> str:
     return tokenizer.apply_chat_template(
-        reasoning_messages(problem, model_name), tokenize=False, add_generation_prompt=True
+        reasoning_messages(problem, model_name),
+        tokenize=False,
+        add_generation_prompt=True,
     )
 
 
-def _answer_token_start(token_texts: list[str], response: str, char_start: int | None) -> int | None:
-    if char_start is None:
-        return None
-    joined = ""
-    for index, text in enumerate(token_texts):
-        joined += text
-        if len(joined) > char_start:
-            return index
-    return max(0, len(token_texts) - 1) if token_texts else None
-
-
-def _token_trace(generated_ids, score_steps, tokenizer, top_m: int) -> tuple[list[dict], list[str]]:
+def _token_trace(
+    generated_ids, score_steps, tokenizer, top_m: int
+) -> tuple[list[dict], list[str]]:
     import torch
 
     trace: list[dict] = []
@@ -80,7 +73,9 @@ def _token_trace(generated_ids, score_steps, tokenizer, top_m: int) -> tuple[lis
     return trace, token_texts
 
 
-def generate_greedy(model, tokenizer, prompt: str, settings: GenerationSettings) -> dict:
+def generate_greedy(
+    model, tokenizer, prompt: str, settings: GenerationSettings
+) -> dict:
     import torch
 
     device = next(model.parameters()).device
@@ -89,6 +84,11 @@ def generate_greedy(model, tokenizer, prompt: str, settings: GenerationSettings)
     pad_token_id = tokenizer.pad_token_id
     if pad_token_id is None:
         pad_token_id = tokenizer.eos_token_id
+    sampling = {}
+    if settings.do_sample:
+        if settings.temperature <= 0:
+            raise ValueError("Stochastic decoding requires positive temperature")
+        sampling = {"temperature": settings.temperature, "top_p": settings.top_p}
     with torch.inference_mode():
         output = model.generate(
             **inputs,
@@ -97,17 +97,31 @@ def generate_greedy(model, tokenizer, prompt: str, settings: GenerationSettings)
             pad_token_id=pad_token_id,
             use_cache=True,
             return_dict_in_generate=True,
-            output_scores=True,
+            output_logits=True,
+            **sampling,
         )
     generated_ids = output.sequences[0, prompt_length:]
     response = tokenizer.decode(generated_ids, skip_special_tokens=True)
     extracted = extract_final_answer(response)
-    trace, token_texts = _token_trace(generated_ids, output.scores, tokenizer, settings.top_m)
+    trace, _ = _token_trace(generated_ids, output.logits, tokenizer, settings.top_m)
+    # Decode prefixes together: byte-level tokenizers need not decode additively.
+    prefixes = [
+        tokenizer.decode(generated_ids[:i], skip_special_tokens=True)
+        for i in range(1, len(generated_ids) + 1)
+    ]
+    alpha = None
+    if extracted.char_start is not None:
+        for i, prefix in enumerate(prefixes):
+            # An incomplete UTF-8 prefix can end in replacement characters.
+            stable_prefix = prefix.rstrip("\ufffd")
+            if len(stable_prefix) > extracted.char_start:
+                alpha = i
+                break
     return {
         "response": response,
         "answer_raw": extracted.raw,
         "answer": extracted.normalized,
-        "answer_start_token": _answer_token_start(token_texts, response, extracted.char_start),
+        "answer_start_token": alpha,
         "token_trace": trace,
         "decoding": {
             "do_sample": settings.do_sample,

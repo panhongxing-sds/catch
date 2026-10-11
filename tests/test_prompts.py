@@ -16,5 +16,8 @@ def test_llama_reasoning_prompt_has_full_step_template_and_fixed_conclusion():
     system = messages[0]["content"]
     assert "## Step 1: [Concise description]" in system
     assert "## Step 2: [Concise description]" in system
-    assert "Therefore, the final answer is: $\\boxed{answer}$. I hope it is correct." in system
+    assert (
+        "Therefore, the final answer is: $\\boxed{answer}$. I hope it is correct."
+        in system
+    )
     assert messages[1] == {"role": "user", "content": "PROBLEM"}

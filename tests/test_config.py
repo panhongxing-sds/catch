@@ -12,7 +12,9 @@ def test_appendix_main_configuration():
     cfg = load_config(root / "configs/main.yaml")
     assert cfg["experiment"]["evaluation_runs"] == [41, 42, 43]
     assert cfg["experiment"]["max_new_tokens"] == 2048
-    assert sum(item["expected_examples"] for item in cfg["datasets"].values()) * 4 == 8364
+    assert (
+        sum(item["expected_examples"] for item in cfg["datasets"].values()) * 4 == 8364
+    )
     assert cfg["text_perturbation"]["count"] == 4
     assert cfg["weight_perturbation"]["count"] == 4
     assert cfg["weight_perturbation"]["rank"] == 4
@@ -23,6 +25,8 @@ def test_appendix_main_configuration():
         43: [50, 51, 52, 53],
     }
     assert cfg["hesitation"]["top_m"] == 10
+    assert cfg["text_perturbation"]["verifier"]["model"] == "gpt-5.6"
+    assert cfg["training_free"]["aggregation"] == "hesitation_gated_consistency"
     validate_main_config(cfg)
 
 
@@ -42,3 +46,6 @@ def test_only_appendix_sensitivity_overrides_are_allowed():
         validate_sensitivity_override(4, 0.1, None)
     with pytest.raises(ValueError, match="grid"):
         validate_sensitivity_override(3, 0.03, "sensitivity/rank_3")
+    validate_sensitivity_override(None, None, "sensitivity/M2", top_m=2)
+    with pytest.raises(ValueError, match="grid"):
+        validate_sensitivity_override(None, None, "sensitivity/M3", top_m=3)

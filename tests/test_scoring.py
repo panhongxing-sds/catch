@@ -26,7 +26,10 @@ def test_contextual_hesitation_marks_missing_run_for_fold_imputation():
         {"top_logprobs": [0.0, -3.0]},
     ]
     actual = contextual_hesitation(
-        [{"token_trace": trace, "answer_start_token": 3}, {"token_trace": [], "answer_start_token": None}]
+        [
+            {"token_trace": trace, "answer_start_token": 3},
+            {"token_trace": [], "answer_start_token": None},
+        ]
     )
     assert math.isnan(actual)
 
@@ -36,13 +39,17 @@ def test_contextual_hesitation_averages_all_valid_perturbation_runs():
         {"top_logprobs": [0.0, -1.0]},
         {"top_logprobs": [0.0, -2.0]},
     ]
-    expected = run_hesitation(trace, 2, top_m=10)
-    assert contextual_hesitation(
-        [
-            {"token_trace": trace, "answer_start_token": 2},
-            {"token_trace": trace, "answer_start_token": 2},
-        ]
-    ) == expected
+    expected = run_hesitation(trace, 2, top_m=2)
+    assert (
+        contextual_hesitation(
+            [
+                {"token_trace": trace, "answer_start_token": 2},
+                {"token_trace": trace, "answer_start_token": 2},
+            ],
+            top_m=2,
+        )
+        == expected
+    )
 
 
 def test_leave_one_dataset_out_never_uses_held_out_labels():

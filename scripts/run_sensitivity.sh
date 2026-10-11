@@ -23,4 +23,9 @@ for model in llama32_1b llama31_8b; do
       --results-root "results/sensitivity/rank_${rank}" \
       --model "$model" --evaluation-run 41
   done
+  # M affects scoring, not generation. Reuse the main run's raw top-10 cache.
+  for top_m in 2 4 8 10; do
+    .venv/bin/catch-uq evaluate-run --results-root results --model "$model" \
+      --evaluation-run 41 --top-m "$top_m" --mode both
+  done
 done

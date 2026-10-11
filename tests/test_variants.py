@@ -28,15 +28,19 @@ def test_rephrase_pipeline_uses_four_families_and_independent_verification(monke
     )
     calls = []
 
-    def fake_chat(messages, model, temperature, top_p, thinking=False, request_attempts=5):
-        calls.append((messages, model, temperature, top_p, thinking, request_attempts))
-        return "EQUIVALENT" if thinking else next(candidates)
+    def fake_chat(messages, spec, **kwargs):
+        calls.append((messages, spec, kwargs))
+        return "EQUIVALENT" if spec["api_style"] == "responses" else next(candidates)
 
-    monkeypatch.setattr(variants_module, "_chat", fake_chat)
+    monkeypatch.setattr(variants_module, "chat", fake_chat)
     output = generate_verified_variants(question)
     assert len(output) == 4
     generation_calls = calls[0::2]
     verifier_calls = calls[1::2]
-    assert all(call[1:4] == ("deepseek-v4-pro", 0.8, 0.95) for call in generation_calls)
-    assert all(call[4] is False for call in generation_calls)
-    assert all(call[1:5] == ("deepseek-v4-pro", 0.0, 1.0, True) for call in verifier_calls)
+    assert all(call[1]["model"] == "deepseek-v4-pro" for call in generation_calls)
+    assert all(
+        call[2] == {"temperature": 0.8, "top_p": 0.95} for call in generation_calls
+    )
+    assert all(
+        call[1]["model"] == "gpt-5.6" and call[2] == {} for call in verifier_calls
+    )
